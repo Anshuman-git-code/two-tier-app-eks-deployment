@@ -1,0 +1,29 @@
+# Exclude large binary files
+*.deb
+amazon-q.deb
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment files
+.env
+*.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker volumes and data
+mysql-data/
+
+# Logs
+*.log
