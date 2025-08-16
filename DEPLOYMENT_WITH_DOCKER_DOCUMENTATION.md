@@ -204,33 +204,7 @@ docker network create twotier
 MYSQL_HOST=mysql  # Instead of localhost
 ```
 
-### Challenge 2: Database Initialization
-**Problem**: Messages table not created automatically
-**Error**: `Table 'myDb.messages' doesn't exist`
-
-**Solutions Implemented**:
-1. **Docker Compose Volume Mount**: 
-   ```yaml
-   volumes:
-     - ./message.sql:/docker-entrypoint-initdb.d/message.sql
-   ```
-
-2. **Application-level Initialization**:
-   ```python
-   def init_db():
-       with app.app_context():
-           cur = mysql.connection.cursor()
-           cur.execute('''
-           CREATE TABLE IF NOT EXISTS messages (
-               id INT AUTO_INCREMENT PRIMARY KEY,
-               message TEXT
-           );
-           ''')
-           mysql.connection.commit()
-           cur.close()
-   ```
-
-### Challenge 3: Container Startup Order
+### Challenge 2: Container Startup Order
 **Problem**: Flask app started before MySQL was ready
 **Error**: `Connection refused` during application startup
 
@@ -247,7 +221,7 @@ healthcheck:
   retries: 5
 ```
 
-### Challenge 4: Python MySQL Dependencies
+### Challenge 3: Python MySQL Dependencies
 **Problem**: MySQLclient installation failed in container
 **Error**: `Failed building wheel for mysqlclient`
 
@@ -258,7 +232,7 @@ RUN apt-get update -y \
   && rm -rf /var/lib/apt/lists/*
 ```
 
-### Challenge 5: Environment Variable Configuration
+### Challenge 4: Environment Variable Configuration
 **Problem**: Inconsistent database credentials across services
 **Error**: `Access denied for user`
 
