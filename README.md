@@ -1,97 +1,177 @@
- 
-# Flask App with MySQL Docker Setup
+# Two-Tier Application Kubernetes Deployment
 
-This is a simple Flask app that interacts with a MySQL database. The app allows users to submit messages, which are then stored in the database and displayed on the frontend.
+This project demonstrates the deployment of a two-tier web application using Flask and MySQL on Kubernetes. The application is containerized and deployed using Kubernetes manifests with Kind (Kubernetes in Docker).
+
+## Architecture
+
+The application consists of two main tiers:
+1. **Frontend**: Flask web application (Python)
+2. **Backend**: MySQL database with persistent storage
+
+**Deployment Architecture:**
+```
+Internet → EC2 (13.126.0.103:30004) → Kind Container (30004) → 
+NodePort Service (30004) → Flask Pod (5000) → MySQL Service (3306) → MySQL Pod
+```
+
+## Features
+
+- Kubernetes-native deployment
+- Persistent storage for MySQL data
+- Service discovery and networking
+- External access via NodePort
+- Scalable architecture
+- Container orchestration
 
 ## Prerequisites
 
-Before you begin, make sure you have the following installed:
+- Ubuntu EC2 instance
+- Docker installed and running
+- Kind (Kubernetes in Docker)
+- kubectl CLI tool
+- Git
 
-- Docker
-- Git (optional, for cloning the repository)
+## Quick Start
 
-## Setup
-
-1. Clone this repository (if you haven't already):
-
-   ```bash
-   git clone https://github.com/your-username/your-repo-name.git
-   ```
-
-2. Navigate to the project directory:
-
-   ```bash
-   cd your-repo-name
-   ```
-
-3. Create a `.env` file in the project directory to store your MySQL environment variables:
-
-   ```bash
-   touch .env
-   ```
-
-4. Open the `.env` file and add your MySQL configuration:
-
-   ```
-   MYSQL_HOST=mysql
-   MYSQL_USER=your_username
-   MYSQL_PASSWORD=your_password
-   MYSQL_DB=your_database
-   ```
-
-## Usage
-
-1. Start the containers using Docker Compose:
-
-   ```bash
-   docker-compose up --build
-   ```
-
-2. Access the Flask app in your web browser:
-
-   - Frontend: http://localhost
-   - Backend: http://localhost:5000
-
-3. Create the `messages` table in your MySQL database:
-
-   - Use a MySQL client or tool (e.g., phpMyAdmin) to execute the following SQL commands:
-   
-     ```sql
-     CREATE TABLE messages (
-         id INT AUTO_INCREMENT PRIMARY KEY,
-         message TEXT
-     );
-     ```
-
-4. Interact with the app:
-
-   - Visit http://localhost to see the frontend. You can submit new messages using the form.
-   - Visit http://localhost:5000/insert_sql to insert a message directly into the `messages` table via an SQL query.
-
-## Cleaning Up
-
-To stop and remove the Docker containers, press `Ctrl+C` in the terminal where the containers are running, or use the following command:
-
+1. Clone the repository:
 ```bash
-docker-compose down
+git clone https://github.com/Anshuman-git-code/two-tier-app-k8s-deployment.git
+cd two-tier-app-k8s-deployment
 ```
 
-## To run this two-tier application using  without docker-compose
-
-- First create a docker image from Dockerfile
+2. Create Kind cluster with port mapping:
 ```bash
-docker build -t flaskapp .
+kind create cluster --name two-tier-cluster --config k8s/kind-config.yaml
 ```
 
-- Now, make sure that you have created a network using following command
+3. Deploy the application:
 ```bash
+# Deploy MySQL components
+kubectl apply -f k8s/mysql-pv.yml
+kubectl apply -f k8s/mysql-pvc.yml
+kubectl apply -f k8s/mysql-deployment.yml
+kubectl apply -f k8s/mysql-svc.yml
+
+# Wait for MySQL to be ready
+kubectl wait --for=condition=ready pod -l app=mysql --timeout=120s
+
+# Deploy Flask application
+kubectl apply -f k8s/two-tier-app-deployment.yml
+kubectl apply -f k8s/two-tier-app-svc.yml
+
+# Wait for application to be ready
+kubectl wait --for=condition=ready pod -l app=two-tier-app --timeout=120s
+```
+
+4. Access the application:
+```
+http://<your-ec2-public-ip>:30004
+```
+
+## Kubernetes Components
+
+### Storage Components
+- **PersistentVolume**: `mysql-pv.yml` - 256Mi storage for MySQL data
+- **PersistentVolumeClaim**: `mysql-pvc.yml` - Storage claim for MySQL
+
+### MySQL Components
+- **Deployment**: `mysql-deployment.yml` - MySQL database deployment
+- **Service**: `mysql-svc.yml` - ClusterIP service for internal access
+
+### Application Components
+- **Deployment**: `two-tier-app-deployment.yml` - Flask application deployment
+- **Service**: `two-tier-app-svc.yml` - NodePort service for external access
+- **Pod**: `two-tier-app-pod.yml` - Alternative pod configuration
+
+### Cluster Configuration
+- **Kind Config**: `kind-config.yaml` - Cluster setup with port mapping
+
+## Environment Variables
+
+The Flask application uses these environment variables:
+- `MYSQL_HOST`: MySQL service IP address
+- `MYSQL_USER`: MySQL username (root)
+- `MYSQL_PASSWORD`: MySQL password (admin)
+- `MYSQL_DB`: MySQL database name (mydb)
+
+## File Structure
+
+```
+.
+├── k8s/                                    # Kubernetes manifests
+│   ├── mysql-pv.yml                       # MySQL Persistent Volume
+│   ├── mysql-pvc.yml                      # MySQL Persistent Volume Claim
+│   ├── mysql-deployment.yml               # MySQL Deployment
+│   ├── mysql-svc.yml                      # MySQL Service
+│   ├── two-tier-app-deployment.yml        # Flask App Deployment
+│   ├── two-tier-app-svc.yml              # Flask App Service
+│   ├── two-tier-app-pod.yml              # Flask App Pod (alternative)
+│   └── kind-config.yaml                   # Kind cluster configuration
+├── app.py                                  # Flask application
+├── requirements.txt                        # Python dependencies
+├── Dockerfile                             # Docker configuration
+├── docker-compose.yml                     # Docker Compose (legacy)
+├── templates/                             # HTML templates
+├── DEPLOYMENT_WITH_K8S_DOCUMENTATION.md   # Detailed deployment guide
+└── README.md                              # This file
+```
+
+## Deployment Commands
+
+### Verify Deployment
+```bash
+# Check all resources
+kubectl get all -o wide
+
+# Check persistent volumes
+kubectl get pv,pvc
+
+# Check application logs
+kubectl logs deployment/two-tier-app-deployment
+
+# Check MySQL logs
+kubectl logs deployment/mysql
+```
+
+### Troubleshooting
+```bash
+# Test internal connectivity
+kubectl exec deployment/two-tier-app-deployment -- getent hosts mysql
+
+# Test MySQL connection
+kubectl exec deployment/mysql -- mysql -u root -padmin -e "SHOW DATABASES;"
+
+# Port forward for testing
+kubectl port-forward service/two-tier-app-service 8080:80 --address=0.0.0.0
+```
+
+## Scaling
+
+Scale the application:
+```bash
+kubectl scale deployment two-tier-app-deployment --replicas=3
+```
+
+## Cleanup
+
+Remove the deployment:
+```bash
+kubectl delete -f k8s/
+kind delete cluster --name two-tier-cluster
+```
+
+## Legacy Docker Deployment
+
+For Docker-based deployment (legacy), see the docker-compose.yml file:
+
+```bash
+# Using Docker Compose
+docker-compose up --build
+
+# Manual Docker deployment
 docker network create twotier
-```
 
-- Attach both the containers in the same network, so that they can communicate with each other
-
-i) MySQL container 
-```bash
+# MySQL container
 docker run -d \
     --name mysql \
     -v mysql-data:/var/lib/mysql \
@@ -101,9 +181,7 @@ docker run -d \
     -p 3306:3306 \
     mysql:5.7
 
-```
-ii) Backend container
-```bash
+# Flask application container
 docker run -d \
     --name flaskapp \
     --network=twotier \
@@ -112,19 +190,21 @@ docker run -d \
     -e MYSQL_PASSWORD=admin \
     -e MYSQL_DB=mydb \
     -p 5000:5000 \
-    flaskapp:latest
-
+    anshuman0506/flaskapp:latest
 ```
 
-## Notes
+## Documentation
 
-- Make sure to replace placeholders (e.g., `your_username`, `your_password`, `your_database`) with your actual MySQL configuration.
+For detailed deployment process, challenges faced, and solutions, see:
+- [DEPLOYMENT_WITH_K8S_DOCUMENTATION.md](DEPLOYMENT_WITH_K8S_DOCUMENTATION.md)
 
-- This is a basic setup for demonstration purposes. In a production environment, you should follow best practices for security and performance.
+## Contributing
 
-- Be cautious when executing SQL queries directly. Validate and sanitize user inputs to prevent vulnerabilities like SQL injection.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
-- If you encounter issues, check Docker logs and error messages for troubleshooting.
+## License
 
-```
-
+This project is open source and available under the [MIT License](LICENSE).
